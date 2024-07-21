@@ -1512,7 +1512,7 @@ class BibEntry {
     //---begin yomi extension
   /** Returns the authors of this entry as an array (split by " and ") */
   function getRawYomis() {
-    return $this->split_yomis();
+    return $this->split_names('yomi');
   }
     //---end yomi extension
 
@@ -1543,29 +1543,6 @@ class BibEntry {
     // }
     return $res;
   }
-
-    //---begin yomi extension
-  function split_yomis() {
-    $array = preg_split('/ and( |$)/ims', @$this->raw_fields['yomi']);
-    $res = array();
-    // we merge the remaining ones
-    for ($i=0; $i < count($array); $i++) {
-      if (strpos( latex2html($array[$i],false), '{') !== FALSE && strpos(latex2html($array[$i+1],false),'}') !== FALSE) {
-        $res[] = $this->clean_top_curly(trim($array[$i])." and ".trim($array[$i+1]));
-        $i = $i + 1;
-      } else {
-        $res[] = trim($array[$i]);
-      }
-    }
-    // Since the above loop copies all the elements in any cases, we no
-    // longer need to care the "last element".
-    //
-    // if (!preg_match('/\}/',latex2html($array[count($array)-1],false))) {
-    //     $res[] = trim($array[count($array)-1]);
-    // }
-    return $res;
-  }
-    //---end yomi extension
 
   /**
    * Returns the formated author name w.r.t to the user preference
