@@ -1,5 +1,5 @@
 <?php /* bibtexbrowser: publication lists with bibtex and PHP
-<!--this is version from commit 166f973229986ea77a4315d1459bf9cfb180c79a -->
+<!--this is version from commit __GITHUB__ -->
 URL: http://www.monperrus.net/martin/bibtexbrowser/
 Questions & Bug Reports: https://github.com/monperrus/bibtexbrowser/issues
 
@@ -19,7 +19,7 @@ License, or (at your option) any later version.
 // added on Wednesday, June 01 2011, bug found by Carlos Bras
 if (!defined('BIBTEXBROWSER')) {
 // this if block ends at the very end of this file, after all class and function declarations.
-define('BIBTEXBROWSER','v166f973229986ea77a4315d1459bf9cfb180c79a');
+define('BIBTEXBROWSER','v__GITHUB__');
 
 // support for configuration
 // set with bibtexbrowser_configure, get with config_value
@@ -76,7 +76,7 @@ if (defined('ENCODING')) {
 @define('MATHJAX_URI', '//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/config/TeX-AMS_HTML.js?V=2.7.1');
 
 // the default jquery URI
-@define('JQUERY_URI', '//code.jquery.com/jquery-1.5.1.min.js');
+@define('JQUERY_URI', '//code.jquery.com/jquery-3.6.4.min.js');
 
 // can we load bibtex files on external servers?
 @define('BIBTEXBROWSER_LOCAL_BIB_ONLY', true);
@@ -161,6 +161,10 @@ if (defined('ENCODING')) {
 
 @define('BIBTEXBROWSER_DEBUG',false);
 
+// should we cache the parsed bibtex file?
+// ref: https://github.com/monperrus/bibtexbrowser/issues/128
+@define('BIBTEXBROWSER_USE_CACHE',true);
+
 // how to print authors names?
 // default => as in the bibtex file
 // USE_COMMA_AS_NAME_SEPARATOR_IN_OUTPUT = true => "Meyer, Herbert"
@@ -242,6 +246,10 @@ if (defined('ENCODING')) {
 define('Q_INNER_AUTHOR', '_author');// internally used for representing the author
 define('Q_INNER_TYPE', 'x-bibtex-type');// used for representing the type of the bibtex entry internally
 @define('Q_INNER_KEYS_INDEX', '_keys-index');// used for storing indices in $_GET[Q_KEYS] array
+
+define('Q_NAME', 'name');// used to allow for exact last name matches in multisearch
+define('Q_AUTHOR_NAME', 'author_name');// used to allow for exact last name matches in multisearch
+define('Q_EDITOR_NAME', 'editor_name');// used to allow for exact last name matches in multisearch
 
 // for clean search engine links
 // we disable url rewriting
@@ -350,7 +358,11 @@ function _zetDB($bibtex_filenames) {
   }
 
 
-
+  $parse=true;
+  $updated = false;
+  
+  if (config_value('BIBTEXBROWSER_USE_CACHE')==true) {
+  
   // ---------------------------- HANDLING caching of compiled bibtex files
   // for sake of performance, once the bibtex file is parsed
   // we try to save a "compiled" in a txt file
@@ -380,7 +392,8 @@ function _zetDB($bibtex_filenames) {
       $parse=true;
     }
   } else {$parse=true;}
-
+  }
+  
   // we don't have a compiled version
   if ($parse) {
     //echo '<!-- parsing -->';
@@ -391,7 +404,6 @@ function _zetDB($bibtex_filenames) {
     }
   }
 
-  $updated = false;
   // now we may update the database
   if (!file_exists($compiledbib)) {
     @touch($compiledbib);
@@ -777,6 +789,10 @@ class XMLPrettyPrinter extends ParserDelegate {
 
 /** represents @string{k=v} */
 class StringEntry {
+  public $filename;
+  public $name;
+  public $value;
+
   function __construct($k, $v, $filename) {
     $this->name=$k;
     $this->value=$v;
@@ -1128,6 +1144,7 @@ function latex2html($line, $do_clean_extra_bracket=true) {
 
 /** encodes strings for Z3988 URLs. Note that & are encoded as %26 and not as &amp. */
 function s3988($s) {
+  if ($s == null) return '';
   // first remove the HTML entities (e.g. &eacute;) then urlencode them
   return urlencode($s);
 }
@@ -1216,7 +1233,7 @@ class BibEntry {
     return $this->timestamp;
   }
 
-  /** Returns the type of this bib entry. */
+  /** Returns the type of this bib entry (always lowercase). */
   function getType() {
     // strtolower is important to be case-insensitive
     return strtolower($this->getField(Q_INNER_TYPE));
@@ -1489,7 +1506,7 @@ class BibEntry {
 
   /** Returns the authors of this entry as an array (split by " and ") */
   function getRawAuthors() {
-    return $this->split_authors();
+    return $this->split_names(Q_AUTHOR);
   }
 
     //---begin yomi extension
@@ -1499,8 +1516,15 @@ class BibEntry {
   }
     //---end yomi extension
 
-  function split_authors() {
-    $array = preg_split('/ and( |$)/ims', @$this->raw_fields[Q_AUTHOR]);
+  // Previously called split_authors. Made generic to allow call on editors as well.
+  function split_names($key) {
+    if (!array_key_exists($key, $this->raw_fields)) return array();
+
+    // Sometimes authors/editors are split by line breaks followed by whitespace in bib files.
+    // In this case we need to replace these with a normal space.
+    $raw = preg_replace( '/\s+/', ' ', @$this->raw_fields[$key]);
+    $array = preg_split('/ and( |$)/ims', $raw);
+
     $res = array();
     // we merge the remaining ones
     for ($i=0; $i < count($array); $i++) {
@@ -1542,7 +1566,7 @@ class BibEntry {
     return $res;
   }
     //---end yomi extension
-    
+
   /**
    * Returns the formated author name w.r.t to the user preference
    * encoded in USE_COMMA_AS_NAME_SEPARATOR_IN_OUTPUT and USE_INITIALS_FOR_NAMES
@@ -1750,6 +1774,12 @@ class BibEntry {
     return $editors;
   }
 
+
+  /** Returns the editors of this entry as an array (split by " and ") */
+  function getRawEditors() {
+    return $this->split_names(EDITOR);
+  }
+
   /** Returns the editors of this entry as an arry */
   function getFormattedEditors() {
     $editors = array();
@@ -1763,10 +1793,12 @@ class BibEntry {
 
   /** Returns the year of this entry? */
   function getYear() {
-    return __(strtolower($this->getField('year')));
+    return __(strtolower($this->getYearRaw()));
   }
   function getYearRaw() {
-    return $this->getField('year');
+    $r = $this->getField('year'); 
+    if ($r == null) return '';
+    return $r;
   }
 
   /** returns the array of keywords */
@@ -2130,22 +2162,22 @@ function get_HTML_tag_for_layout() {
 function bib2links_default($bibentry) {
   $links = array();
 
-  if (BIBTEXBROWSER_BIBTEX_LINKS) {
+  if (c('BIBTEXBROWSER_BIBTEX_LINKS')) {
     $link = $bibentry->getBibLink();
     if ($link != '') { $links[] = $link; };
   }
 
-  if (BIBTEXBROWSER_PDF_LINKS) {
+  if (c('BIBTEXBROWSER_PDF_LINKS')) {
     $link = $bibentry->getUrlLink();
     if ($link != '') { $links[] = $link; };
   }
 
-  if (BIBTEXBROWSER_DOI_LINKS) {
+  if (c('BIBTEXBROWSER_DOI_LINKS')) {
     $link = $bibentry->getDoiLink();
     if ($link != '') { $links[] = $link; };
   }
 
-  if (BIBTEXBROWSER_GSID_LINKS) {
+  if (c('BIBTEXBROWSER_GSID_LINKS')) {
     $link = $bibentry->getGSLink();
     if ($link != '') { $links[] = $link; };
   }
@@ -2486,6 +2518,10 @@ function DefaultBibliographyStyle($bibentry) {
 
   if ($bibentry->hasField(YEAR)) $entry[] = '<span itemprop="datePublished">'.$bibentry->getYear().'</span>';
 
+  if ($bibentry->hasField("note")) {
+    $entry[] = $bibentry->getField("note");
+  }
+  
   $result = implode(", ",$entry).'.';
 
   // add the Coin URL
@@ -2802,7 +2838,7 @@ if (!function_exists('poweredby')) {
   function poweredby() {
     $poweredby = "\n".'<div style="text-align:right;font-size: xx-small;opacity: 0.6;" class="poweredby">';
     $poweredby .= '<!-- If you like bibtexbrowser, thanks to keep the link :-) -->';
-    $poweredby .= 'Powered by <a href="http://www.monperrus.net/martin/bibtexbrowser/">bibtexbrowser</a><!--v166f973229986ea77a4315d1459bf9cfb180c79a-->';
+    $poweredby .= 'Powered by <a href="http://www.monperrus.net/martin/bibtexbrowser/">bibtexbrowser</a><!--v__GITHUB__-->';
     $poweredby .= '</div>'."\n";
     return $poweredby;
   }
@@ -2913,10 +2949,11 @@ class MenuManager {
   /** function called back by HTMLTemplate */
   function display() {
   echo $this->searchView().'<br/>';
-  echo $this->typeVC().'<br/>';
+  echo $this->venueVC().'<br/>';
   echo $this->yearVC().'<br/>';
   echo $this->authorVC().'<br/>';
   echo $this->tagVC().'<br/>';
+  echo $this->typeVC().'<br/>';
   }
 
   /** Displays the title in a table. */
@@ -2937,7 +2974,8 @@ class MenuManager {
       <input type="text" name="<?php echo Q_SEARCH; ?>" class="input_box" size="18"/>
       <input type="hidden" name="<?php echo Q_FILE; ?>" value="<?php echo @$_GET[Q_FILE]; ?>"/>
       <br/>
-      <input type="submit" value="search" class="input_box"/>
+      <!-- submit button -->
+      <input type="submit" value="<?php echo __("search"); ?>" class="input_box"/>
     </form>
     <?php
   }
@@ -2946,9 +2984,9 @@ class MenuManager {
   function typeVC() {
     $types = array();
     foreach ($this->db->getTypes() as $type) {
-      $types[$type] = $type;
+      $types[$type] = __($type);
     }
-    $types['.*'] = 'all types';
+    $types['.*'] = __('all types');;
     // retreive or calculate page number to display
     if (isset($_GET[Q_TYPE_PAGE])) {
       $page = $_GET[Q_TYPE_PAGE];
@@ -2958,6 +2996,16 @@ class MenuManager {
     $this->displayMenu('Types', $types, $page, $this->type_size, Q_TYPE_PAGE, Q_INNER_TYPE);
   }
 
+  
+  /** Displays and controls the venues. */
+  function venueVC() {
+    // retrieve authors list to display
+    $data = $this->db->venueIndex();
+        
+    $this->displayMenu('Venues', $data, 1, 100000, Q_SEARCH,
+                       Q_SEARCH);
+  }
+  
   /** Displays and controls the authors menu in a table. */
   function authorVC() {
     // retrieve authors list to display
@@ -3032,7 +3080,7 @@ else $page = 1;
         and the navigation links on the right -->
         <table style="width:100%" border="0" cellspacing="0" cellpadding="0">
           <tr class="btb-nav-title">
-            <td><b><?php echo $title; ?></b></td>
+            <td><b><?php echo __($title); ?></b></td>
             <td class="btb-nav"><b>
                 <?php echo $this->menuPageBar($pageKey, $numEntries, $page,
            $pageSize, $startIndex, $endIndex);?></b></td>
@@ -3430,6 +3478,9 @@ usage:
 </pre>
   */
 class AcademicDisplay  {
+  public $db;
+  public $entries;
+  public $title;
 
   function getTitle() { return $this->title; }
   function setTitle($title) { $this->title = $title; return $this; }
@@ -3961,6 +4012,24 @@ class BibDataBase {
     return $result;
   }
 
+  function venueIndex(){
+    $tmp = array();
+    foreach ($this->bibdb as $bib) {
+      if ($bib->getType()=="article") {
+        @$tmp[$bib->getField("journal")]++;
+      }
+      if ($bib->getType()=="inproceedings") {
+        @$tmp[$bib->getField("booktitle")]++;
+      }
+    }
+    arsort($tmp);
+    $result=array();
+    foreach ($tmp as $k=>$v) {
+      $result[$k]=$k;
+    }
+    return $result;
+  }
+  
   /** Generates and returns an array consisting of all tags.
    */
   function tagIndex(){
@@ -4102,6 +4171,31 @@ class BibDataBase {
             // moved here so that it is also used by AcademicDisplay:search2html()
             if (!$bib->hasPhrase('^('.$fragment.')$', Q_INNER_TYPE))  {
               $entryisselected = false;
+              break;
+            }
+          }
+          else if ($field==Q_NAME || $field==Q_AUTHOR_NAME || $field==Q_EDITOR_NAME) {
+            // Names require exact matching per name. Although a preg_match over the entire author field is possible,
+            // it's inconvenient and often results in unwanted matches if not done careful. Instead, use
+            // 'name'=>'(M. Monperrus|Monperrus, M.)' to exact match the name of an author or editor, use
+            // 'author_name' to match the name of an author, and use 'editor_name' to match the name of an editor.
+            $names = [];
+            if ($field==Q_NAME || $field==Q_AUTHOR_NAME)
+              $names = array_merge($bib->getRawAuthors(), $names);
+            if ($field==Q_NAME || $field==Q_EDITOR_NAME)
+              $names = array_merge($bib->getRawEditors(), $names);
+
+            if (empty($names)) {
+              $entryisselected = false;
+            } else {
+              foreach ($names as $name) {
+                $entryisselected = preg_match('/^' . $fragment . '$/', trim($name));
+                if ($entryisselected) {
+                  break;
+                }
+              }
+            }
+            if (!$entryisselected) {
               break;
             }
           }
@@ -4319,7 +4413,7 @@ echo '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=<?php echo OUTPUT_ENCODING ?>"/>
-<meta name="generator" content="bibtexbrowser v166f973229986ea77a4315d1459bf9cfb180c79a" />
+<meta name="generator" content="bibtexbrowser v__GITHUB__" />
 <?php
 // if ($content->getRSS()!='') echo '<link rel="alternate" type="application/rss+xml" title="RSS" href="'.$content->getRSS().'&amp;rss" />';
 ?>
@@ -4591,7 +4685,7 @@ class RSSDisplay {
       <link>http://<?php echo @$_SERVER['HTTP_HOST'].htmlentities(@$_SERVER['REQUEST_URI']);?></link>
       <atom:link href="http://<?php echo @$_SERVER['HTTP_HOST'].htmlentities(@$_SERVER['REQUEST_URI']);?>" rel="self" type="application/rss+xml" />
       <description></description>
-      <generator>bibtexbrowser v166f973229986ea77a4315d1459bf9cfb180c79a</generator>
+      <generator>bibtexbrowser v__GITHUB__</generator>
 
 <?php
       foreach($this->entries as $bibentry) {
@@ -4926,9 +5020,6 @@ class Dispatcher {
 
   function keys() {
     // Create array from list of bibtex entries
-    if (get_magic_quotes_gpc()) {
-      $_GET[Q_KEYS] = stripslashes($_GET[Q_KEYS]);
-    }
     $_GET[Q_KEYS] = (array) json_decode(urldecode($_GET[Q_KEYS])); // decode and cast the object into an (associative) array
     // Make the array 1-based (keeps the string keys unchanged)
     array_unshift($_GET[Q_KEYS],"__DUMMY__");
@@ -4942,7 +5033,7 @@ class Dispatcher {
   function diagnosis() {
     header('Content-type: text/plain');
     echo "php version: ".phpversion()."\n";
-    echo "bibtexbrowser version: 166f973229986ea77a4315d1459bf9cfb180c79a\n";
+    echo "bibtexbrowser version: __GITHUB__\n";
     echo "dir: ".decoct(fileperms(dirname(__FILE__)))."\n";
     echo "bibtex file: ".decoct(fileperms($_GET[Q_FILE]))."\n";
     exit;
@@ -4954,7 +5045,7 @@ class Dispatcher {
     <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Frameset//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd">
     <html  xmlns="http://www.w3.org/1999/xhtml">
     <head>
-    <meta name="generator" content="bibtexbrowser v166f973229986ea77a4315d1459bf9cfb180c79a" />
+    <meta name="generator" content="bibtexbrowser v__GITHUB__" />
     <meta http-equiv="Content-Type" content="text/html; charset=<?php echo OUTPUT_ENCODING ?>"/>
     <title>You are browsing <?php echo htmlentities($_GET[Q_FILE], ENT_QUOTES); ?> with bibtexbrowser</title>
     </head>
