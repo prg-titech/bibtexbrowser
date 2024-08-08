@@ -1510,10 +1510,10 @@ class BibEntry {
   }
 
     //---begin yomi extension
-  /** Returns the authors of this entry as an array (split by " and ") */
-  function getRawYomis() {
-    return $this->split_names('yomi');
-  }
+  // /** Returns the authors of this entry as an array (split by " and ") */
+  // function getRawYomis() {
+  //   return $this->split_names('yomi');
+  // }
     //---end yomi extension
 
   // Previously called split_authors. Made generic to allow call on editors as well.
@@ -1630,29 +1630,29 @@ class BibEntry {
     //---begin yomi extension
   /** Returns the authors as an array of strings (one string per author).
    */
-  function getFormattedYomisArray() {
-    $array_authors = array();
+  // function getFormattedYomisArray() {
+  //   $array_authors = array();
 
 
-    // first we use formatAuthor
-    foreach ($this->getRawYomis() as $author) {
-      $array_authors[]=$this->formatAuthor($author);
-    }
+  //   // first we use formatAuthor
+  //   foreach ($this->getRawYomis() as $author) {
+  //     $array_authors[]=$this->formatAuthor($author);
+  //   }
 
-    if (BIBTEXBROWSER_AUTHOR_LINKS=='homepage') {
-      foreach ($array_authors as $k => $author) {
-        $array_authors[$k]=$this->addHomepageLink($author);
-      }
-    }
+  //   if (BIBTEXBROWSER_AUTHOR_LINKS=='homepage') {
+  //     foreach ($array_authors as $k => $author) {
+  //       $array_authors[$k]=$this->addHomepageLink($author);
+  //     }
+  //   }
 
-    if (BIBTEXBROWSER_AUTHOR_LINKS=='resultpage') {
-      foreach ($array_authors as $k => $author) {
-        $array_authors[$k]=$this->addAuthorPageLink($author);
-      }
-    }
+  //   if (BIBTEXBROWSER_AUTHOR_LINKS=='resultpage') {
+  //     foreach ($array_authors as $k => $author) {
+  //       $array_authors[$k]=$this->addAuthorPageLink($author);
+  //     }
+  //   }
 
-    return $array_authors;
-  }
+  //   return $array_authors;
+  // }
     //---end yomi extension
 
   /** Adds to getFormattedAuthors() the home page links and returns a string (not an array). Is configured with BIBTEXBROWSER_AUTHOR_LINKS and USE_COMMA_AS_NAME_SEPARATOR_IN_OUTPUT.
@@ -3960,19 +3960,19 @@ class BibDataBase {
   function authorIndex(){
     $tmp = array();
     foreach ($this->bibdb as $bib) {
-        //---begin yomi extension
+        // //---begin yomi extension
 
-        // make index from the yomi field
+        // // make index from the yomi field
 
-        $yomi_exists = false;
-        foreach($bib->getFormattedYomisArray() as $a){
-            $a = strip_tags($a);
-            //we use an array because several authors can have the
-            //same lastname
-            @$tmp[$bib->getLastName($a)]=$a;
-            $yomi_exists = true;
-        } 
-        //---end yomi extension
+        // $yomi_exists = false;
+        // foreach($bib->getFormattedYomisArray() as $a){
+        //     $a = strip_tags($a);
+        //     //we use an array because several authors can have the
+        //     //same lastname
+        //     @$tmp[$bib->getLastName($a)]=$a;
+        //     $yomi_exists = true;
+        // } 
+        // //---end yomi extension
 
       foreach($bib->getFormattedAuthorsArray() as $a){
         $a = strip_tags($a);
