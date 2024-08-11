@@ -1509,13 +1509,6 @@ class BibEntry {
     return $this->split_names(Q_AUTHOR);
   }
 
-    //---begin yomi extension
-  // /** Returns the authors of this entry as an array (split by " and ") */
-  // function getRawYomis() {
-  //   return $this->split_names('yomi');
-  // }
-    //---end yomi extension
-
   // Previously called split_authors. Made generic to allow call on editors as well.
   function split_names($key) {
     if (!array_key_exists($key, $this->raw_fields)) return array();
@@ -1627,33 +1620,6 @@ class BibEntry {
 
     return $array_authors;
   }
-    //---begin yomi extension
-  /** Returns the authors as an array of strings (one string per author).
-   */
-  // function getFormattedYomisArray() {
-  //   $array_authors = array();
-
-
-  //   // first we use formatAuthor
-  //   foreach ($this->getRawYomis() as $author) {
-  //     $array_authors[]=$this->formatAuthor($author);
-  //   }
-
-  //   if (BIBTEXBROWSER_AUTHOR_LINKS=='homepage') {
-  //     foreach ($array_authors as $k => $author) {
-  //       $array_authors[$k]=$this->addHomepageLink($author);
-  //     }
-  //   }
-
-  //   if (BIBTEXBROWSER_AUTHOR_LINKS=='resultpage') {
-  //     foreach ($array_authors as $k => $author) {
-  //       $array_authors[$k]=$this->addAuthorPageLink($author);
-  //     }
-  //   }
-
-  //   return $array_authors;
-  // }
-    //---end yomi extension
 
   /** Adds to getFormattedAuthors() the home page links and returns a string (not an array). Is configured with BIBTEXBROWSER_AUTHOR_LINKS and USE_COMMA_AS_NAME_SEPARATOR_IN_OUTPUT.
   */
@@ -3960,20 +3926,6 @@ class BibDataBase {
   function authorIndex(){
     $tmp = array();
     foreach ($this->bibdb as $bib) {
-        // //---begin yomi extension
-
-        // // make index from the yomi field
-
-        // $yomi_exists = false;
-        // foreach($bib->getFormattedYomisArray() as $a){
-        //     $a = strip_tags($a);
-        //     //we use an array because several authors can have the
-        //     //same lastname
-        //     @$tmp[$bib->getLastName($a)]=$a;
-        //     $yomi_exists = true;
-        // } 
-        // //---end yomi extension
-
       foreach($bib->getFormattedAuthorsArray() as $a){
         $a = strip_tags($a);
         //we use an array because several authors can have the same lastname
@@ -4099,33 +4051,6 @@ class BibDataBase {
         $entryisselected = true;
         foreach ($query as $field => $fragment) {
           $field = strtolower($field);
-          //---begin yomi extension
-
-          // when there is a parameter "author=John+Doe" in the URL,
-          // $query will have an entry Q_INNER_AUTHOR=>"John Doe".
-          // This query was processed by the very last else phrase
-          // that checks whether $bib has "John Doe" in the
-          // Q_INNER_AUTHOR field.  My patch to this process is to
-          // check yomi field as well, and reject the entry if
-          // $fragment does not appear in both fields.  This is safe
-          // as all the entries that were selected by the previous
-          // implementaiton are still selected.
-
-          // However, this is not robust as yomi fields are not
-          // canonicalized in the way that the author field are done.
-          // TODO: process yomi field in the same way that the author
-          // field is canonicalized, and put the result in _yomi
-          // field.
-
-          if ($field==Q_INNER_AUTHOR) {
-            if (!$bib->hasPhrase($fragment, $field)
-                && (!$bib->hasField('yomi')//$bib->getField('yomi')==null
-                    || !$bib->hasPhrase($fragment, 'yomi')))  {
-              $entryisselected = false;
-              break;
-            }
-          } else
-          //---end yomi extension
               
           if ($field==Q_SEARCH) {
             // we search in the whole bib entry
